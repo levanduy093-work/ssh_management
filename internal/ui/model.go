@@ -44,30 +44,39 @@ func (h hostItem) FilterValue() string {
 }
 
 func (h hostItem) Title() string {
+	// Host name in white
+	name := h.host.Name
+
+	// Connection info in cyan (like in image)
+	connInfo := fmt.Sprintf("(%s@%s:%d)", h.host.Username, h.host.Hostname, h.host.Port)
+
+	// IP address in green (like in image) if available and different from hostname
 	if h.host.IPAddress != "" && h.host.IPAddress != h.host.Hostname {
-		return fmt.Sprintf("%s (%s@%s:%d) [%s]", h.host.Name, h.host.Username, h.host.Hostname, h.host.Port, h.host.IPAddress)
+		return fmt.Sprintf("%s %s [%s]", name, connInfo, h.host.IPAddress)
 	}
-	return fmt.Sprintf("%s (%s@%s:%d)", h.host.Name, h.host.Username, h.host.Hostname, h.host.Port)
+
+	return fmt.Sprintf("%s %s", name, connInfo)
 }
 
 func (h hostItem) Description() string {
-	desc := ""
+	var parts []string
+
+	// Description
 	if h.host.Description != "" {
-		desc = h.host.Description
+		parts = append(parts, h.host.Description)
 	}
+
+	// Tags
 	if h.host.Tags != "" {
-		if desc != "" {
-			desc += " • "
-		}
-		desc += "🏷️ " + h.host.Tags
+		parts = append(parts, h.host.Tags)
 	}
+
+	// Usage count
 	if h.host.UseCount > 0 {
-		if desc != "" {
-			desc += " • "
-		}
-		desc += fmt.Sprintf("Used %d times", h.host.UseCount)
+		parts = append(parts, fmt.Sprintf("Used %d times", h.host.UseCount))
 	}
-	return desc
+
+	return strings.Join(parts, " • ")
 }
 
 type keyMap struct {
@@ -124,15 +133,33 @@ func NewModel(hostService *service.HostService) Model {
 	searchInput.Focus()
 	searchInput.CharLimit = 50
 
-	// Create list
-	l := list.New([]list.Item{}, list.NewDefaultDelegate(), 0, 0)
+	// Create delegate with no background highlight
+	delegate := list.NewDefaultDelegate()
+
+	// Selected item - no background, just different text color
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.
+		Foreground(accentColor).        // Green for selected
+		Background(lipgloss.Color("")). // No background
+		Bold(true)
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.
+		Foreground(cyanColor).         // Cyan for selected description
+		Background(lipgloss.Color("")) // No background
+
+	// Normal items
+	delegate.Styles.NormalTitle = delegate.Styles.NormalTitle.
+		Foreground(textColor)
+	delegate.Styles.NormalDesc = delegate.Styles.NormalDesc.
+		Foreground(mutedColor)
+
+	// Create list with custom delegate
+	l := list.New([]list.Item{}, delegate, 0, 0)
 	l.Title = "SSH Hosts"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false) // Disable default help to use our custom help
+	l.SetShowHelp(false)
 	l.Styles.Title = titleStyle
 
-	// Disable all default key bindings
+	// Configure key bindings
 	l.KeyMap.CursorUp.SetEnabled(true)
 	l.KeyMap.CursorDown.SetEnabled(true)
 	l.KeyMap.NextPage.SetEnabled(true)
@@ -161,20 +188,58 @@ func NewModel(hostService *service.HostService) Model {
 }
 
 var (
-	titleStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FAFAFA")).
-			Background(lipgloss.Color("#7D56F4")).
-			Padding(0, 1)
+	// Color scheme matching the image - keep green and cyan
+	primaryColor = lipgloss.Color("#5B21B6") // Purple for headers only
+	accentColor  = lipgloss.Color("#10B981") // Green (like in image)
+	cyanColor    = lipgloss.Color("#06B6D4") // Cyan (like in image)
+	warningColor = lipgloss.Color("#F59E0B") // Orange
+	errorColor   = lipgloss.Color("#DC2626") // Red
+	mutedColor   = lipgloss.Color("#6B7280") // Gray
+	textColor    = lipgloss.Color("#F3F4F6") // Light gray
+	dimTextColor = lipgloss.Color("#9CA3AF") // Dimmed gray
 
+	// Clean header styles
+	titleStyle = lipgloss.NewStyle().
+			Foreground(textColor).
+			Background(primaryColor).
+			Padding(0, 1).
+			Bold(true)
+
+	// Simple message styles
 	messageStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#04B575"))
+			Foreground(accentColor).
+			MarginTop(1)
 
 	errorStyle = lipgloss.NewStyle().
-			Foreground(lipgloss.Color("#FF6B6B"))
+			Foreground(errorColor).
+			MarginTop(1)
+
+	warningStyle = lipgloss.NewStyle().
+			Foreground(warningColor).
+			MarginTop(1)
+
+	// Clean help style
+	helpStyle = lipgloss.NewStyle().
+			Foreground(mutedColor).
+			MarginTop(1)
+
+	// Simple search styles
+	searchTitleStyle = lipgloss.NewStyle().
+				Foreground(textColor).
+				Background(primaryColor).
+				Padding(0, 1).
+				Bold(true)
+
+	// Simple confirmation styles
+	confirmTitleStyle = lipgloss.NewStyle().
+				Foreground(textColor).
+				Background(warningColor).
+				Padding(0, 1).
+				Bold(true)
 )
 
 func (m Model) Init() tea.Cmd {
-	return m.loadHosts()
+	return m.refreshWithDiscovery()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -311,46 +376,82 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m Model) View() string {
 	switch m.state {
 	case searchView:
-		return fmt.Sprintf(
-			"Search SSH Hosts\n\n%s\n\n%s",
-			m.searchInput.View(),
-			"Press Enter to search, Esc to cancel",
-		)
+		header := searchTitleStyle.Render("Search SSH Hosts")
+		input := m.searchInput.View()
+		help := helpStyle.Render("Press Enter to search • Esc to cancel")
+
+		return fmt.Sprintf("%s\n\n%s\n\n%s", header, input, help)
+
 	case confirmDeleteView:
 		if m.hostToDelete != nil {
-			return fmt.Sprintf(
-				"⚠️  Delete Host Confirmation\n\n"+
-					"Are you sure you want to delete:\n"+
-					"🖥️  %s (%s@%s:%d)\n\n"+
-					"⚠️  This will remove the host from:\n"+
-					"   • SSH Manager database\n"+
-					"   • ~/.ssh/known_hosts file\n\n"+
-					"❓ Continue? (y/N)\n\n"+
-					"Press 'y' to confirm, 'n' or 'Esc' to cancel",
+			title := confirmTitleStyle.Render("Delete Host Confirmation")
+
+			hostInfo := fmt.Sprintf(
+				"Host: %s\n"+
+					"Connection: %s@%s:%d\n"+
+					"IP: %s",
 				m.hostToDelete.Name,
 				m.hostToDelete.Username,
 				m.hostToDelete.Hostname,
 				m.hostToDelete.Port,
+				m.hostToDelete.IPAddress,
 			)
+
+			warning := warningStyle.Render(
+				"This will remove the host from:\n" +
+					"• SSH Manager database\n" +
+					"• ~/.ssh/known_hosts file",
+			)
+
+			help := helpStyle.Render("Press 'y' to confirm • 'n' or 'Esc' to cancel")
+
+			return fmt.Sprintf("%s\n\n%s\n\n%s\n\nContinue? (y/N)\n\n%s", title, hostInfo, warning, help)
 		}
-		return "Error: No host selected for deletion"
+		return errorStyle.Render("Error: No host selected for deletion")
+
 	default:
+		// Main list view
+		header := titleStyle.Render("SSH Manager")
+
+		// Status bar
+		statusText := fmt.Sprintf("Total hosts: %d", len(m.hosts))
+		if len(m.hosts) > 0 {
+			statusText += fmt.Sprintf(" • Selected: %d", m.list.Index()+1)
+		}
+		statusBar := helpStyle.Render(statusText)
+
+		// Main content
 		content := m.list.View()
+
+		// Message display
+		var message string
 		if m.message != "" {
 			var msgStyle lipgloss.Style
-			if strings.Contains(m.message, "Error") {
+			if strings.Contains(m.message, "Error") || strings.Contains(m.message, "Failed") {
 				msgStyle = errorStyle
+			} else if strings.Contains(m.message, "Warning") {
+				msgStyle = warningStyle
 			} else {
 				msgStyle = messageStyle
 			}
-			content += "\n" + msgStyle.Render(m.message)
+			message = msgStyle.Render(m.message)
 		}
 
-		// Add custom help
-		helpText := "↑/k up • ↓/j down • / search • x delete • r refresh • q quit • ? more"
-		content += "\n" + helpText
+		// Help text
+		helpText := helpStyle.Render(
+			"↑/k up • ↓/j down • / search • enter connect • x delete • r refresh • q quit",
+		)
 
-		return content
+		// Combine elements
+		result := header + "\n" + statusBar + "\n\n" + content
+
+		if message != "" {
+			result += "\n\n" + message
+		}
+
+		result += "\n\n" + helpText
+
+		return result
 	}
 }
 
