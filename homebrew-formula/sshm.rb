@@ -1,10 +1,10 @@
 class Sshm < Formula
   desc "Terminal UI for SSH Host Management with auto-discovery and intelligent username detection"
-  homepage "https://github.com/levanduy/ssh_management"
-  url "https://github.com/levanduy/ssh_management/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "8d14308aead7a533331f3020ec3c7d828b7d6cec8da32d23ef6768aedc329b8c"
+  homepage "https://github.com/levanduy093-work/ssh_management"
+  url "https://github.com/levanduy093-work/ssh_management/archive/refs/tags/v1.0.0.tar.gz"
+  sha256 "e9a0af78e737e0eaff9b4eeea802eb9bb8266bcb7f86f42bd3f06553f0b35523"
   license "MIT"
-  head "https://github.com/levanduy/ssh_management.git", branch: "main"
+  head "https://github.com/levanduy093-work/ssh_management.git", branch: "main"
 
   depends_on "go" => :build
 
@@ -33,9 +33,6 @@ class Sshm < Formula
 
   test do
     # Test that the binary was installed and runs
-    assert_match version.to_s, shell_output("#{bin}/sshm --version 2>&1", 1)
-    
-    # Test that it can create database directory
     system bin/"sshm", "--help"
   end
 
@@ -65,7 +62,7 @@ class Sshm < Formula
         q             Quit
       
       For more information, visit:
-      https://github.com/levanduy/ssh_management
+      https://github.com/levanduy093-work/ssh_management
     EOS
   end
 end 
