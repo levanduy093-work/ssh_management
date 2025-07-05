@@ -1,0 +1,162 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+        
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+          
+    - name: Download dependencies
+      run: go mod download
+      
+    - name: Run tests
+      run: go test -v ./...
+      
+    - name: Build for multiple platforms
+      run: make build-all VERSION=${{ github.ref_name }}
+      
+    - name: Create release archives
+      run: make release
+      
+    - name: Generate checksums
+      run: |
+        cd dist
+        sha256sum *.tar.gz > checksums.txt
+        
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: SSH Manager ${{ github.ref_name }}
+        body: |
+          🚀 **SSH Manager Release ${{ github.ref_name }}**
+          
+          ## 📦 Downloads
+          
+          Choose the appropriate binary for your platform:
+          
+          ### macOS
+          - **Apple Silicon (M1/M2)**: `sshm-darwin-arm64.tar.gz`
+          - **Intel**: `sshm-darwin-amd64.tar.gz`
+          
+          ### Linux
+          - **x86_64**: `sshm-linux-amd64.tar.gz`
+          - **ARM64**: `sshm-linux-arm64.tar.gz`
+          
+          ## 🛠️ Installation
+          
+          ### Manual Installation
+          ```bash
+          # Download and extract
+          wget https://github.com/levanduy/ssh_management/releases/download/${{ github.ref_name }}/sshm-<your-platform>.tar.gz
+          tar -xzf sshm-<your-platform>.tar.gz
+          
+          # Make executable and move to PATH
+          chmod +x sshm-<your-platform>
+          sudo mv sshm-<your-platform> /usr/local/bin/sshm
+          ```
+          
+          ### Homebrew (Coming Soon)
+          ```bash
+          brew tap levanduy/ssh_management
+          brew install sshm
+          ```
+          
+          ## ✨ Features
+          - Interactive TUI for managing SSH hosts
+          - CLI commands for quick operations
+          - SQLite local storage
+          - Cross-platform support
+          - Usage statistics and search
+          
+          ## 🚀 Quick Start
+          ```bash
+          # Add a new SSH host
+          sshm add myserver
+          
+          # Launch interactive mode
+          sshm
+          
+          # Connect to a host
+          sshm connect myserver
+          ```
+          
+          For full documentation, visit: https://github.com/levanduy/ssh_management
+        draft: false
+        prerelease: false
+        
+    - name: Upload Release Assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/sshm-darwin-amd64.tar.gz
+        asset_name: sshm-darwin-amd64.tar.gz
+        asset_content_type: application/gzip
+        
+    - name: Upload Darwin ARM64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/sshm-darwin-arm64.tar.gz
+        asset_name: sshm-darwin-arm64.tar.gz
+        asset_content_type: application/gzip
+        
+    - name: Upload Linux AMD64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/sshm-linux-amd64.tar.gz
+        asset_name: sshm-linux-amd64.tar.gz
+        asset_content_type: application/gzip
+        
+    - name: Upload Linux ARM64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/sshm-linux-arm64.tar.gz
+        asset_name: sshm-linux-arm64.tar.gz
+        asset_content_type: application/gzip
+        
+    - name: Upload Checksums
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/checksums.txt
+        asset_name: checksums.txt
+        asset_content_type: text/plain 
