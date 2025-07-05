@@ -195,6 +195,28 @@ func (s *HostService) AutoDiscoverFromKnownHosts() (int, error) {
 	for _, host := range mergedHosts {
 		// Check if host already exists
 		if existingHost, err := s.GetHostByName(host.Name); err == nil && existingHost != nil {
+			// Host exists, check if we have better information
+			shouldUpdate := false
+
+			// Update username if current one is just system username and we found a better one
+			if existingHost.Username == s.getCurrentUsername() && host.Username != s.getCurrentUsername() {
+				existingHost.Username = host.Username
+				shouldUpdate = true
+			}
+
+			// Update IP if we don't have one or found a better one
+			if existingHost.IPAddress == "" {
+				ipAddress := s.resolveIPAddress(existingHost.Hostname)
+				if ipAddress != "" {
+					existingHost.IPAddress = ipAddress
+					shouldUpdate = true
+				}
+			}
+
+			if shouldUpdate {
+				s.UpdateHost(existingHost)
+			}
+
 			continue // Skip existing hosts
 		}
 
@@ -353,17 +375,128 @@ func (s *HostService) mergeKnownHosts(hosts []KnownHost) []KnownHost {
 	return merged
 }
 
-// parseSSHConfig tries to find username from SSH config
-func (s *HostService) parseSSHConfig(hostname string) string {
+// parseShellHistory tries to find SSH commands from shell history to get username
+func (s *HostService) parseShellHistory(hostname string) string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return s.getCurrentUsername()
 	}
 
+	// Try different shell history files
+	historyFiles := []string{
+		filepath.Join(homeDir, ".zsh_history"),
+		filepath.Join(homeDir, ".bash_history"),
+		filepath.Join(homeDir, ".history"),
+	}
+
+	for _, historyFile := range historyFiles {
+		if username := s.parseHistoryFile(historyFile, hostname); username != "" {
+			return username
+		}
+	}
+
+	return s.getCurrentUsername() // Fallback
+}
+
+func (s *HostService) parseHistoryFile(historyFile, hostname string) string {
+	file, err := os.Open(historyFile)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Look for SSH commands
+		if username := s.extractUsernameFromSSHCommand(line, hostname); username != "" {
+			return username
+		}
+	}
+
+	return ""
+}
+
+func (s *HostService) extractUsernameFromSSHCommand(command, hostname string) string {
+	// Remove timestamp prefix from zsh history (: 1234567890:0;ssh ...)
+	if strings.Contains(command, ";") {
+		parts := strings.Split(command, ";")
+		if len(parts) > 1 {
+			command = strings.Join(parts[1:], ";")
+		}
+	}
+
+	command = strings.TrimSpace(command)
+
+	// Look for SSH commands
+	if !strings.HasPrefix(command, "ssh ") {
+		return ""
+	}
+
+	// Parse SSH command arguments
+	args := strings.Fields(command)
+	if len(args) < 2 {
+		return ""
+	}
+
+	// Look for user@host pattern
+	for _, arg := range args[1:] {
+		// Skip flags
+		if strings.HasPrefix(arg, "-") {
+			continue
+		}
+
+		// Check if this argument contains @ (user@host format)
+		if strings.Contains(arg, "@") {
+			parts := strings.Split(arg, "@")
+			if len(parts) >= 2 {
+				username := parts[0]
+				hostPart := strings.Join(parts[1:], "@")
+
+				// More flexible hostname matching
+				if hostPart == hostname ||
+					strings.Contains(hostPart, hostname) ||
+					strings.Contains(hostname, hostPart) {
+					return username
+				}
+			}
+		} else {
+			// Also check direct hostname matches (ssh hostname)
+			if arg == hostname ||
+				strings.Contains(arg, hostname) ||
+				strings.Contains(hostname, arg) {
+				// No username specified, check previous args for -l flag
+				for i := 1; i < len(args)-1; i++ {
+					if args[i] == "-l" && i+1 < len(args) {
+						return args[i+1]
+					}
+				}
+			}
+		}
+	}
+
+	return ""
+}
+
+// Enhanced parseSSHConfig that also tries shell history
+func (s *HostService) parseSSHConfig(hostname string) string {
+	// First try SSH config
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return s.parseShellHistory(hostname)
+	}
+
 	configPath := filepath.Join(homeDir, ".ssh", "config")
 	file, err := os.Open(configPath)
 	if err != nil {
-		return s.getCurrentUsername() // Fallback to current user
+		// SSH config doesn't exist, try shell history
+		return s.parseShellHistory(hostname)
 	}
 	defer file.Close()
 
@@ -409,7 +542,8 @@ func (s *HostService) parseSSHConfig(hostname string) string {
 		}
 	}
 
-	return s.getCurrentUsername() // Fallback
+	// SSH config didn't have the info, try shell history
+	return s.parseShellHistory(hostname)
 }
 
 // resolveIPAddress tries to resolve hostname to IP address
@@ -417,6 +551,11 @@ func (s *HostService) resolveIPAddress(hostname string) string {
 	// If hostname is already an IP address, return it
 	if net.ParseIP(hostname) != nil {
 		return hostname
+	}
+
+	// First try to find IP from known_hosts (might have direct IP entries)
+	if ip := s.getIPFromKnownHosts(hostname); ip != "" {
+		return ip
 	}
 
 	// Try to resolve hostname to IP
@@ -438,4 +577,58 @@ func (s *HostService) resolveIPAddress(hostname string) string {
 	}
 
 	return "" // Return empty if no IP found
+}
+
+// getIPFromKnownHosts checks if known_hosts has direct IP entries for this hostname
+func (s *HostService) getIPFromKnownHosts(hostname string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	knownHostsPath := filepath.Join(homeDir, ".ssh", "known_hosts")
+	file, err := os.Open(knownHostsPath)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) < 3 {
+			continue
+		}
+
+		knownHost := parts[0]
+
+		// Skip hashed hostnames
+		if strings.HasPrefix(knownHost, "|1|") {
+			continue
+		}
+
+		// Check if this entry is for our hostname and contains an IP
+		if strings.Contains(knownHost, hostname) {
+			// Extract IP if present (could be hostname,ip format)
+			if strings.Contains(knownHost, ",") {
+				hostParts := strings.Split(knownHost, ",")
+				for _, part := range hostParts {
+					if net.ParseIP(part) != nil {
+						return part
+					}
+				}
+			}
+			// Check if the hostname itself is an IP
+			if net.ParseIP(knownHost) != nil {
+				return knownHost
+			}
+		}
+	}
+
+	return ""
 }
