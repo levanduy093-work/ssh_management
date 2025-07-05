@@ -1,12 +1,17 @@
 package service
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/levanduy/ssh_management/internal/domain"
+	"github.com/levanduy/ssh_management/pkg/ssh"
 )
 
 type HostService struct {
@@ -33,9 +38,13 @@ func (s *HostService) CreateHost(name, hostname, username string, port int, keyP
 		}
 	}
 
+	// Resolve IP address
+	ipAddress := s.resolveIPAddress(hostname)
+
 	host := &domain.Host{
 		Name:        name,
 		Hostname:    hostname,
+		IPAddress:   ipAddress,
 		Port:        port,
 		Username:    username,
 		KeyPath:     keyPath,
@@ -83,6 +92,27 @@ func (s *HostService) UpdateHost(host *domain.Host) error {
 
 func (s *HostService) DeleteHost(id int) error {
 	return s.repo.Delete(id)
+}
+
+// DeleteHostFromBoth deletes host from both database and known_hosts file
+func (s *HostService) DeleteHostFromBoth(id int) error {
+	// First get the host details
+	host, err := s.repo.GetByID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get host: %w", err)
+	}
+
+	// Delete from database
+	if err := s.repo.Delete(id); err != nil {
+		return fmt.Errorf("failed to delete from database: %w", err)
+	}
+
+	// Delete from known_hosts
+	if err := ssh.RemoveFromKnownHosts(host.Hostname, host.Port); err != nil {
+		return fmt.Errorf("failed to remove from known_hosts: %w", err)
+	}
+
+	return nil
 }
 
 func (s *HostService) SearchHosts(query string) ([]*domain.Host, error) {
@@ -137,4 +167,275 @@ func JoinTags(tags []string) string {
 		}
 	}
 	return strings.Join(cleanTags, ", ")
-} 
+}
+
+// AutoDiscoverFromKnownHosts discovers new SSH hosts from ~/.ssh/known_hosts
+func (s *HostService) AutoDiscoverFromKnownHosts() (int, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return 0, fmt.Errorf("cannot access home directory: %v", err)
+	}
+
+	// Only scan known_hosts
+	knownHostsPath := filepath.Join(homeDir, ".ssh", "known_hosts")
+	if _, err := os.Stat(knownHostsPath); err != nil {
+		return 0, nil // File doesn't exist, return 0 new hosts
+	}
+
+	hosts := s.parseKnownHosts(knownHostsPath)
+	if len(hosts) == 0 {
+		return 0, nil // No hosts found
+	}
+
+	// Remove duplicates and merge
+	mergedHosts := s.mergeKnownHosts(hosts)
+
+	newHostsCount := 0
+	// Import hosts
+	for _, host := range mergedHosts {
+		// Check if host already exists
+		if existingHost, err := s.GetHostByName(host.Name); err == nil && existingHost != nil {
+			continue // Skip existing hosts
+		}
+
+		// Add the host
+		description := fmt.Sprintf("Auto-detected from %s (%s)", host.Source, host.KeyType)
+
+		_, err := s.CreateHost(
+			host.Name,
+			host.Hostname,
+			host.Username,
+			host.Port,
+			"", // No specific key path from detection
+			description,
+			"ssh-detected",
+		)
+		if err == nil {
+			newHostsCount++
+		}
+	}
+
+	return newHostsCount, nil
+}
+
+type KnownHost struct {
+	Name     string
+	Hostname string
+	Username string
+	Port     int
+	Source   string // "known_hosts"
+	KeyType  string // ssh-ed25519, ssh-rsa, etc.
+}
+
+func (s *HostService) parseKnownHosts(knownHostsPath string) []KnownHost {
+	file, err := os.Open(knownHostsPath)
+	if err != nil {
+		return nil
+	}
+	defer file.Close()
+
+	var hosts []KnownHost
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+
+		// Skip empty lines and comments
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse known_hosts line: hostname keytype publickey
+		parts := strings.Fields(line)
+		if len(parts) < 3 {
+			continue
+		}
+
+		hostname := parts[0]
+		keyType := parts[1]
+
+		// Skip hashed hostnames (starting with |1|)
+		if strings.HasPrefix(hostname, "|1|") {
+			continue
+		}
+
+		// Handle [hostname]:port format
+		actualHostname := hostname
+		port := 22
+
+		if strings.HasPrefix(hostname, "[") && strings.Contains(hostname, "]:") {
+			// Format: [hostname]:port
+			re := regexp.MustCompile(`\[([^\]]+)\]:(\d+)`)
+			matches := re.FindStringSubmatch(hostname)
+			if len(matches) == 3 {
+				actualHostname = matches[1]
+				if p, err := s.parsePort(matches[2]); err == nil {
+					port = p
+				}
+			}
+		}
+
+		// Generate name from hostname
+		name := s.generateKnownHostName(actualHostname)
+
+		host := KnownHost{
+			Name:     name,
+			Hostname: actualHostname,
+			Username: s.parseSSHConfig(actualHostname), // Try to get username from SSH config
+			Port:     port,
+			Source:   "known_hosts",
+			KeyType:  keyType,
+		}
+
+		hosts = append(hosts, host)
+	}
+
+	return hosts
+}
+
+func (s *HostService) generateKnownHostName(hostname string) string {
+	// Extract meaningful name from hostname
+	parts := strings.Split(hostname, ".")
+	if len(parts) > 0 {
+		name := parts[0]
+		// Remove any non-alphanumeric characters except hyphens
+		name = regexp.MustCompile(`[^a-zA-Z0-9\-]`).ReplaceAllString(name, "")
+		if name != "" {
+			return name
+		}
+	}
+
+	// Fallback to hostname with dots replaced by hyphens
+	return strings.ReplaceAll(hostname, ".", "-")
+}
+
+func (s *HostService) getCurrentUsername() string {
+	if username := os.Getenv("USER"); username != "" {
+		return username
+	}
+	if username := os.Getenv("USERNAME"); username != "" {
+		return username
+	}
+	return "user" // Fallback
+}
+
+func (s *HostService) parsePort(portStr string) (int, error) {
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return 22, err
+	}
+	return port, nil
+}
+
+func (s *HostService) mergeKnownHosts(hosts []KnownHost) []KnownHost {
+	hostMap := make(map[string]KnownHost)
+
+	for _, host := range hosts {
+		key := fmt.Sprintf("%s@%s:%d", host.Username, host.Hostname, host.Port)
+
+		// If we already have this host, prefer the one with better key type
+		if existing, exists := hostMap[key]; exists {
+			// Prefer ed25519 over rsa
+			if host.KeyType == "ssh-ed25519" && existing.KeyType != "ssh-ed25519" {
+				hostMap[key] = host
+			}
+		} else {
+			hostMap[key] = host
+		}
+	}
+
+	// Convert back to slice
+	var merged []KnownHost
+	for _, host := range hostMap {
+		merged = append(merged, host)
+	}
+
+	return merged
+}
+
+// parseSSHConfig tries to find username from SSH config
+func (s *HostService) parseSSHConfig(hostname string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return s.getCurrentUsername()
+	}
+
+	configPath := filepath.Join(homeDir, ".ssh", "config")
+	file, err := os.Open(configPath)
+	if err != nil {
+		return s.getCurrentUsername() // Fallback to current user
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var currentHost string
+	var currentUser string
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Parse SSH config directives
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+
+		directive := strings.ToLower(parts[0])
+		value := strings.Join(parts[1:], " ")
+
+		switch directive {
+		case "host":
+			currentHost = value
+			currentUser = "" // Reset user for new host
+		case "hostname":
+			if currentHost != "" && (value == hostname || currentHost == hostname) {
+				// We found a matching host section
+			}
+		case "user":
+			if currentHost != "" && currentUser == "" {
+				currentUser = value
+			}
+		}
+
+		// Check if we have a match
+		if currentHost != "" && currentUser != "" {
+			// Check if this host matches our hostname
+			if currentHost == hostname || strings.Contains(currentHost, hostname) {
+				return currentUser
+			}
+		}
+	}
+
+	return s.getCurrentUsername() // Fallback
+}
+
+// resolveIPAddress tries to resolve hostname to IP address
+func (s *HostService) resolveIPAddress(hostname string) string {
+	// If hostname is already an IP address, return it
+	if net.ParseIP(hostname) != nil {
+		return hostname
+	}
+
+	// Try to resolve hostname to IP
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return "" // Return empty if resolution fails
+	}
+
+	// Return the first IPv4 address found
+	for _, ip := range ips {
+		if ipv4 := ip.To4(); ipv4 != nil {
+			return ipv4.String()
+		}
+	}
+
+	// Return the first IPv6 address if no IPv4 found
+	if len(ips) > 0 {
+		return ips[0].String()
+	}
+
+	return "" // Return empty if no IP found
+}

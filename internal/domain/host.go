@@ -9,6 +9,7 @@ type Host struct {
 	ID          int       `json:"id" db:"id"`
 	Name        string    `json:"name" db:"name"`
 	Hostname    string    `json:"hostname" db:"hostname"`
+	IPAddress   string    `json:"ip_address" db:"ip_address"`
 	Port        int       `json:"port" db:"port"`
 	Username    string    `json:"username" db:"username"`
 	KeyPath     string    `json:"key_path" db:"key_path"`
@@ -37,4 +38,4 @@ type Config struct {
 	DatabasePath string `json:"database_path"`
 	DefaultPort  int    `json:"default_port"`
 	DefaultUser  string `json:"default_user"`
-} 
+}

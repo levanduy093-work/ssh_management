@@ -1,4 +1,4 @@
-.PHONY: build clean test lint install dev release
+.PHONY: build clean test lint install dev release uninstall uninstall-all
 
 # Variables
 BINARY_NAME=sshm
@@ -86,6 +86,33 @@ release: build-all
 	tar -czf $(BINARY_NAME)-linux-amd64.tar.gz $(BINARY_NAME)-linux-amd64 && \
 	tar -czf $(BINARY_NAME)-linux-arm64.tar.gz $(BINARY_NAME)-linux-arm64
 
+# Uninstall from system
+uninstall:
+	@echo "Uninstalling SSH Manager..."
+	@if [ -f /usr/local/bin/$(BINARY_NAME) ]; then \
+		rm -f /usr/local/bin/$(BINARY_NAME) || sudo rm -f /usr/local/bin/$(BINARY_NAME); \
+		echo "✅ SSH Manager binary removed."; \
+	else \
+		echo "⚠️  SSH Manager not found in /usr/local/bin/"; \
+	fi
+	@echo "💡 Data preserved at ~/.sshm/ - use 'make uninstall-all' to remove all data"
+
+# Complete uninstall (binary + data)
+uninstall-all:
+	@echo "Removing SSH Manager completely..."
+	@if [ -f /usr/local/bin/$(BINARY_NAME) ]; then \
+		rm -f /usr/local/bin/$(BINARY_NAME) || sudo rm -f /usr/local/bin/$(BINARY_NAME); \
+		echo "✅ SSH Manager binary removed."; \
+	else \
+		echo "⚠️  SSH Manager not found in /usr/local/bin/"; \
+	fi
+	@if [ -d ~/.sshm ]; then \
+		rm -rf ~/.sshm; \
+		echo "✅ SSH Manager data removed."; \
+	else \
+		echo "⚠️  No data found at ~/.sshm/"; \
+	fi
+
 # Show help
 help:
 	@echo "Available targets:"
@@ -93,6 +120,8 @@ help:
 	@echo "  build          - Build binary for current platform"
 	@echo "  build-all      - Build for all supported platforms"
 	@echo "  install        - Install existing binary to /usr/local/bin"
+	@echo "  uninstall      - Remove binary only (preserve data)"
+	@echo "  uninstall-all  - Remove binary and all data"
 	@echo "  dev            - Build and run for development"
 	@echo "  test           - Run tests"
 	@echo "  lint           - Run linter"

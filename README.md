@@ -1,185 +1,172 @@
 # SSH Manager (sshm)
 
-🚀 **Quản lý SSH dễ dàng và trực quan trên Terminal**
+<div align="center">
 
-SSH Manager là một công cụ terminal giúp bạn quản lý các kết nối SSH một cách dễ dàng, nhanh chóng và trực quan. Được viết bằng Go với giao diện TUI (Terminal User Interface) đẹp mắt.
+![SSH Manager](https://img.shields.io/badge/SSH-Manager-blue?style=for-the-badge)
+![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)
+![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-![Terminal Interface](https://img.shields.io/badge/Interface-Terminal%20TUI-blue)
-![Go Version](https://img.shields.io/badge/Go-1.24+-green)
-![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux-lightgrey)
+**🚀 Giao diện TUI đơn giản để quản lý SSH hosts**
 
-## ✨ Tính năng chính
+*Tự động phát hiện từ `~/.ssh/known_hosts` và cung cấp giao diện terminal tương tác*
 
-### 🔗 Quản lý Host SSH
-- ➕ **Thêm, sửa, xóa** SSH hosts dễ dàng
-- 📊 **Theo dõi thống kê** sử dụng (số lần kết nối, lần cuối)
-- 🏷️ **Gắn tags** để phân loại hosts
-- 📝 **Mô tả chi tiết** cho từng host
+</div>
 
-### 🎯 Giao diện thân thiện
-- 🖥️ **TUI tương tác** với Bubble Tea - đẹp mắt và mượt mà
-- 🔍 **Tìm kiếm nhanh** theo tên, hostname, mô tả, tags
-- ⌨️ **Phím tắt trực quan** - không cần nhớ nhiều lệnh
-- 📱 **Responsive** - tự động điều chỉnh theo kích thước terminal
+## ✨ Tính năng
 
-### ⚡ Hiệu suất cao
-- 🗄️ **SQLite local** - nhanh và nhẹ
-- 🔒 **An toàn** - không lưu trữ mật khẩu, chỉ sử dụng SSH keys
-- 📦 **Single binary** - không phụ thuộc external dependencies
+- 🔍 **Auto-discovery**: Tự động phát hiện SSH hosts từ `~/.ssh/known_hosts`
+- 🖥️ **TUI Interface**: Giao diện terminal tương tác đẹp mắt
+- ⚡ **Kết nối nhanh**: Chọn và kết nối SSH chỉ với vài phím
+- 📊 **Thống kê sử dụng**: Theo dõi tần suất sử dụng các hosts
+- 🏷️ **Thông tin chi tiết**: Hiển thị user, port, mô tả cho mỗi host
+- 💾 **Nhẹ nhàng**: Single binary, không cần cấu hình phức tạp
 
-## 📦 Cài đặt
+## 🎯 Triết lý
 
-### Via Homebrew (Khuyến nghị)
+SSH Manager được thiết kế theo nguyên tắc **đơn giản và hiệu quả**:
+
+- ✅ **Zero config**: Không cần setup, chỉ cần chạy `sshm`
+- ✅ **Auto-discovery**: Tự động phát hiện hosts đã kết nối
+- ✅ **TUI-only**: Chỉ giao diện terminal, không có CLI commands rườm rà
+- ✅ **Lightweight**: Tập trung vào task chính: browse và connect
+
+## 🚀 Cài đặt
+
+### Cài đặt nhanh
 ```bash
-# Sẽ có sẵn sau khi phát hành
-brew tap levanduy/ssh_management
-brew install sshm
+# Download và cài đặt từ GitHub Releases
+curl -sSL https://github.com/levanduy/ssh_management/releases/latest/download/install.sh | bash
 ```
 
-### Quick Setup (Recommended)
+### Build từ source
 ```bash
-# Clone repository
 git clone https://github.com/levanduy/ssh_management.git
 cd ssh_management
-
-# One-command setup (build + install globally)
-./setup.sh
+make install
 ```
 
-### Manual Installation
+### Manual build
 ```bash
-# Clone repository
-git clone https://github.com/levanduy/ssh_management.git
-cd ssh_management
-
-# Option 1: Using Makefile
-make build-install
-
-# Option 2: Manual steps
 go build -o sshm ./cmd/sshm
-sudo mv sshm /usr/local/bin/
+sudo cp sshm /usr/local/bin/
 ```
 
-## 🚀 Sử dụng
+## 🎮 Sử dụng
 
-### 1. Interactive TUI Mode (Khuyến nghị)
+### Khởi động SSH Manager
 ```bash
-# Khởi chạy giao diện tương tác
 sshm
-# hoặc
-sshm tui
 ```
 
-**Phím tắt trong TUI:**
-- `↑/↓` - Di chuyển trong danh sách
-- `Enter` - Kết nối SSH
-- `/` - Tìm kiếm
-- `d` - Xóa host
-- `r` - Refresh danh sách
-- `q` - Thoát
+Chỉ cần vậy thôi! SSH Manager sẽ:
+1. 🔍 Tự động scan `~/.ssh/known_hosts` để tìm hosts
+2. 🖥️ Hiển thị giao diện TUI với danh sách hosts
+3. ⚡ Cho phép bạn browse và kết nối ngay lập tức
 
-### 2. CLI Commands
+### Điều khiển TUI
 
-#### Thêm host mới
-```bash
-sshm add myserver
-# Hệ thống sẽ hỏi thông tin: hostname, username, port, SSH key...
+```
+┌─ SSH Manager ─────────────────────────┐
+│ ID   NAME            HOST             │
+│ ──────────────────────────────────── │
+│ 1    server-prod     192.168.1.100    │
+│ 2    github          github.com       │
+│ 3    vps-dev         dev.example.com  │
+└──────────────────────────────────────┘
 
-# Hoặc thêm trực tiếp
-sshm add prod-server --hostname 192.168.1.100 --username ubuntu --port 22
+⌨️  Phím tắt:
+  ↑/↓    Điều hướng
+  Enter  Kết nối SSH
+  /      Tìm kiếm
+  d      Xóa host
+  r      Refresh (scan lại)
+  q      Thoát
 ```
 
-#### Liệt kê tất cả hosts
-```bash
-sshm list
-# hoặc
-sshm ls
-```
+### Auto-Discovery
 
-#### Kết nối SSH
-```bash
-sshm connect myserver
-# hoặc theo ID
-sshm connect 1
-```
+SSH Manager tự động phát hiện hosts mỗi khi chạy:
 
-#### Tìm kiếm hosts
 ```bash
-sshm search production
-sshm search nginx
-```
+# Khi bạn đã SSH đến hosts mới:
+ssh user@newserver.com
 
-#### Xem thông tin chi tiết
-```bash
-sshm show myserver
-```
-
-#### Xóa host
-```bash
-sshm remove myserver
-# Hệ thống sẽ xác nhận trước khi xóa
-```
-
-## 📋 Ví dụ sử dụng
-
-### Thêm một server production
-```bash
-sshm add prod-web
-# Host name: prod-web
-# Hostname/IP: 192.168.1.100
-# Username: ubuntu
-# Port [22]: 22
-# SSH key path: ~/.ssh/prod_key
-# Description: Production web server
-# Tags: production, web, nginx
-```
-
-### Kết nối nhanh
-```bash
-# Mở TUI và chọn server
+# Sau đó chạy sshm, nó sẽ tự động thêm:
 sshm
-
-# Hoặc kết nối trực tiếp
-sshm connect prod-web
+# → "🔍 Auto-discovered 1 new SSH host(s)"
 ```
 
-## ⚙️ Cấu hình
-
-### Database Location
-Mặc định sshm lưu dữ liệu tại: `~/.sshm/hosts.db`
-
-Có thể thay đổi bằng flag `--db`:
+### Tắt auto-discovery (nếu cần)
 ```bash
-sshm --db /custom/path/hosts.db list
+sshm --auto-discovery=false
 ```
-
-### SSH Key Management
-sshm không lưu trữ mật khẩu, chỉ sử dụng:
-- SSH keys (khuyến nghị)
-- SSH agent
-- System SSH client
 
 ## 🏗️ Kiến trúc
 
 ```
-ssh_management/
-├── cmd/sshm/              # Entry point
-├── internal/
-│   ├── domain/            # Business models
-│   ├── service/           # Business logic  
-│   ├── repo/              # Data persistence (SQLite)
-│   ├── cli/               # CLI commands (Cobra)
-│   └── ui/                # TUI interface (Bubble Tea)
-├── pkg/ssh/               # SSH utilities
-└── README.md
+sshm (single binary)
+├── TUI Interface (Bubble Tea)
+├── Auto-discovery (known_hosts)
+├── SQLite Database (~/.sshm/)
+└── SSH Integration (system ssh)
 ```
 
 **Tech Stack:**
 - **Language**: Go 1.24+
-- **CLI Framework**: Cobra
-- **TUI Framework**: Bubble Tea + Bubbles + Lipgloss
+- **TUI**: Bubble Tea + Bubbles + Lipgloss  
 - **Database**: SQLite (modernc.org/sqlite)
-- **Architecture**: Clean Architecture
+- **SSH**: System SSH client
+
+## ⚙️ Cấu hình
+
+### Database Location
+```bash
+# Mặc định
+~/.sshm/hosts.db
+
+# Custom database path
+sshm --db /custom/path/hosts.db
+```
+
+### SSH Key Management
+SSH Manager sử dụng SSH client của hệ thống:
+- ✅ SSH keys (`~/.ssh/`)
+- ✅ SSH agent
+- ✅ SSH config (`~/.ssh/config`)
+- ❌ Không lưu trữ passwords
+
+## 🎯 Use Cases
+
+### Developer Workflow
+```bash
+# 1. Kết nối đến servers trong ngày
+ssh user@prod-web-01
+ssh deploy@staging-api  
+ssh admin@monitoring
+
+# 2. Sau đó dùng SSH Manager để browse nhanh
+sshm
+# → Tất cả servers xuất hiện trong TUI
+# → Chọn và kết nối chỉ với Enter
+```
+
+### Khác biệt với tools khác
+
+| Tool | Approach | SSH Manager |
+|------|----------|-------------|
+| `ssh` | Manual typing | 🔍 Auto-discovery |
+| `ssh-config` | Manual config | ⚡ Zero config |
+| Complex tools | Many commands | 🎯 TUI-only |
+
+## 🗑️ Gỡ cài đặt
+
+```bash
+# Xóa binary
+sudo rm /usr/local/bin/sshm
+
+# Xóa tất cả dữ liệu (tùy chọn)
+rm -rf ~/.sshm/
+```
 
 ## 🤝 Đóng góp
 
@@ -196,8 +183,8 @@ Dự án được phát hành dưới MIT License. Xem [LICENSE](LICENSE) để 
 ## 🙏 Acknowledgments
 
 - [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Framework TUI tuyệt vời
-- [Cobra](https://github.com/spf13/cobra) - CLI framework mạnh mẽ
 - [SQLite](https://sqlite.org/) - Database nhẹ và tin cậy
+- Go community - Ecosystem tuyệt vời
 
 ## 📞 Liên hệ
 

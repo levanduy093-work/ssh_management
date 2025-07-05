@@ -4,55 +4,40 @@ import (
 	"fmt"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/levanduy/ssh_management/internal/repo"
 	"github.com/levanduy/ssh_management/internal/service"
+	"github.com/levanduy/ssh_management/internal/ui"
 	"github.com/spf13/cobra"
 )
 
 var (
-	dbPath      string
-	hostService *service.HostService
+	dbPath        string
+	hostService   *service.HostService
+	autoDiscovery bool = true // Enable auto-discovery by default
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "sshm",
-	Short: "SSH Manager - Easy SSH host management",
+	Short: "SSH Manager - TUI-based SSH host management",
 	Long: `SSH Manager (sshm) is a terminal-based tool for managing SSH connections.
-It allows you to store, organize, and quickly connect to SSH hosts.
+It automatically discovers SSH hosts from ~/.ssh/known_hosts and provides
+an interactive TUI interface for browsing and connecting to hosts.
 
 Features:
-- Add, edit, and remove SSH hosts
+- Auto-discovery from ~/.ssh/known_hosts
 - Interactive TUI for browsing hosts
-- Search and filter hosts by name, hostname, or tags
-- Quick connection with usage tracking`,
+- Quick SSH connection with usage tracking
+- Lightweight and simple`,
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		initializeService()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check if there are any hosts first
-		hosts, err := hostService.GetAllHosts()
-		if err != nil {
-			fmt.Printf("Error checking hosts: %v\n", err)
-			return
-		}
+		// Auto-discovery: Check for new SSH hosts automatically
+		autoDiscoverHosts()
 
-		// If no hosts exist, show welcome message and suggest adding one
-		if len(hosts) == 0 {
-			fmt.Println("🎉 Welcome to SSH Manager!")
-			fmt.Println("")
-			fmt.Println("You don't have any SSH hosts configured yet.")
-			fmt.Println("Let's add your first host:")
-			fmt.Println("")
-			fmt.Println("💡 Quick start:")
-			fmt.Printf("   %s add myserver%s\n", "\033[1;36m", "\033[0m")
-			fmt.Printf("   %s sshm%s (to launch interactive mode)\n", "\033[1;36m", "\033[0m")
-			fmt.Println("")
-			fmt.Println("📖 For help: sshm --help")
-			return
-		}
-
-		// Default to TUI mode when hosts exist
-		tuiCmd.Run(cmd, args)
+		// Always launch TUI mode
+		launchTUI()
 	},
 }
 
@@ -65,6 +50,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&dbPath, "db", service.GetDefaultDatabasePath(), "Database file path")
+	rootCmd.PersistentFlags().BoolVar(&autoDiscovery, "auto-discovery", true, "Enable automatic SSH host discovery from known_hosts")
 }
 
 func initializeService() {
@@ -75,4 +61,59 @@ func initializeService() {
 	}
 
 	hostService = service.NewHostService(repo)
+}
+
+// autoDiscoverHosts automatically discovers SSH hosts from known_hosts
+func autoDiscoverHosts() {
+	if !autoDiscovery {
+		return // Auto-discovery disabled
+	}
+
+	// Count hosts before discovery
+	hostsBefore, _ := hostService.GetAllHosts()
+	beforeCount := len(hostsBefore)
+
+	// Detect from known_hosts - silent mode
+	detectFromSSHFilesSilent()
+
+	// Count hosts after discovery and show notification if new hosts found
+	hostsAfter, _ := hostService.GetAllHosts()
+	afterCount := len(hostsAfter)
+
+	if afterCount > beforeCount {
+		newHosts := afterCount - beforeCount
+		fmt.Printf("🔍 Auto-discovered %d new SSH host(s)\n", newHosts)
+	}
+}
+
+func launchTUI() {
+	// Check if there are any hosts first
+	hosts, err := hostService.GetAllHosts()
+	if err != nil {
+		fmt.Printf("Error checking hosts: %v\n", err)
+		return
+	}
+
+	// If no hosts exist, show welcome message
+	if len(hosts) == 0 {
+		fmt.Println("🎉 Welcome to SSH Manager!")
+		fmt.Println("")
+		fmt.Println("No SSH hosts found yet.")
+		fmt.Println("💡 Connect to some SSH hosts first, then run 'sshm' again.")
+		fmt.Println("   SSH Manager will auto-discover hosts from ~/.ssh/known_hosts")
+		return
+	}
+
+	// Launch TUI mode
+	launchTUIInterface()
+}
+
+func launchTUIInterface() {
+	model := ui.NewModel(hostService)
+	p := tea.NewProgram(model, tea.WithAltScreen())
+
+	if _, err := p.Run(); err != nil {
+		fmt.Printf("Error running TUI: %v\n", err)
+		os.Exit(1)
+	}
 }
