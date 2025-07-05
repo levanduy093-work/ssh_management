@@ -38,19 +38,19 @@ SSH Manager follows the **"Just Works"** principle:
 ### Homebrew (Recommended)
 ```bash
 # Add tap
-brew tap levanduy/sshm
+brew tap levanduy093-work/sshm
 
 # Install SSH Manager
 brew install sshm
 
 # Or install directly
-brew install levanduy/sshm/sshm
+brew install levanduy093-work/sshm/sshm
 ```
 
 ### Quick Install from Source
 ```bash
 # Clone and install
-git clone https://github.com/levanduy/ssh_management.git
+git clone https://github.com/levanduy093-work/ssh_management.git
 cd ssh_management
 make install
 ```
@@ -58,7 +58,7 @@ make install
 ### Manual Build
 ```bash
 # Clone repository
-git clone https://github.com/levanduy/ssh_management.git
+git clone https://github.com/levanduy093-work/ssh_management.git
 cd ssh_management
 
 # Build and install
@@ -267,10 +267,12 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 - [SQLite](https://sqlite.org/) - Reliable embedded database
 - Go community - Amazing ecosystem
 
-## 📞 Contact
+## 📞 Contact & Support
 
-- GitHub: [@levanduy](https://github.com/levanduy)
-- Project: [ssh_management](https://github.com/levanduy/ssh_management)
+- **Email**: levanduy.work@gmail.com
+- **GitHub**: [@levanduy093-work](https://github.com/levanduy093-work)
+- **Project**: [ssh_management](https://github.com/levanduy093-work/ssh_management)
+- **Issues**: [Report Issues](https://github.com/levanduy093-work/ssh_management/issues)
 
 ---
 
