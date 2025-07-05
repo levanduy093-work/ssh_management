@@ -14,6 +14,21 @@ build:
 	@echo "Building $(BINARY_NAME)..."
 	go build -ldflags "-X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BINARY_NAME) $(MAIN_PATH)
 
+# Build and auto-install globally
+build-install: build
+	@echo "Installing $(BINARY_NAME) globally..."
+	@if [ -w /usr/local/bin ]; then \
+		cp $(BINARY_NAME) /usr/local/bin/; \
+		chmod +x /usr/local/bin/$(BINARY_NAME); \
+		echo "✅ $(BINARY_NAME) installed to /usr/local/bin"; \
+	else \
+		echo "🔑 Installing requires sudo access..."; \
+		sudo cp $(BINARY_NAME) /usr/local/bin/; \
+		sudo chmod +x /usr/local/bin/$(BINARY_NAME); \
+		echo "✅ $(BINARY_NAME) installed to /usr/local/bin"; \
+	fi
+	@echo "🚀 You can now run: $(BINARY_NAME)"
+
 # Build for multiple platforms
 build-all: clean
 	@echo "Building for multiple platforms..."
@@ -74,13 +89,16 @@ release: build-all
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  build      - Build binary for current platform"
-	@echo "  build-all  - Build for all supported platforms"
-	@echo "  install    - Install binary to /usr/local/bin"
-	@echo "  dev        - Build and run for development"
-	@echo "  test       - Run tests"
-	@echo "  lint       - Run linter"
-	@echo "  clean      - Clean build artifacts"
-	@echo "  deps       - Update dependencies"
-	@echo "  release    - Create release archives"
-	@echo "  help       - Show this help" 
+	@echo "  build-install  - 🚀 Build and install globally (RECOMMENDED)"
+	@echo "  build          - Build binary for current platform"
+	@echo "  build-all      - Build for all supported platforms"
+	@echo "  install        - Install existing binary to /usr/local/bin"
+	@echo "  dev            - Build and run for development"
+	@echo "  test           - Run tests"
+	@echo "  lint           - Run linter"
+	@echo "  clean          - Clean build artifacts"
+	@echo "  deps           - Update dependencies"
+	@echo "  release        - Create release archives"
+	@echo "  help           - Show this help"
+	@echo ""
+	@echo "Quick setup: make build-install" 

@@ -36,16 +36,27 @@ brew tap levanduy/ssh_management
 brew install sshm
 ```
 
+### Quick Setup (Recommended)
+```bash
+# Clone repository
+git clone https://github.com/levanduy/ssh_management.git
+cd ssh_management
+
+# One-command setup (build + install globally)
+./setup.sh
+```
+
 ### Manual Installation
 ```bash
 # Clone repository
 git clone https://github.com/levanduy/ssh_management.git
 cd ssh_management
 
-# Build từ source
-go build -o sshm ./cmd/sshm
+# Option 1: Using Makefile
+make build-install
 
-# Copy vào PATH (tuỳ chọn)
+# Option 2: Manual steps
+go build -o sshm ./cmd/sshm
 sudo mv sshm /usr/local/bin/
 ```
 
