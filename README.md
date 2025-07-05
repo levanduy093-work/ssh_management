@@ -258,7 +258,16 @@ cp ~/.ssh/known_hosts.backup ~/.ssh/known_hosts
 
 ## 📄 License
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT License** - **completely free for personal and commercial use**.
+
+**What this means:**
+- ✅ **Free to use** - No cost, no subscription, no hidden fees
+- ✅ **Commercial use** - Use in your business or sell products that include this software
+- ✅ **Modify** - Change the code to fit your needs
+- ✅ **Distribute** - Share with others
+- ✅ **Private use** - Use for personal projects
+
+See [LICENSE](LICENSE) for full details.
 
 ## 🙏 Acknowledgments
 
@@ -276,4 +285,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-⭐ **If this project helps you, please give it a star!** ⭐ 
+⭐ **This software is completely free to use. If this project helps you, please give it a star!** ⭐ 

@@ -83,6 +83,10 @@ rm -rf ~/.sshm/
 
 ---
 
+## 📄 License
+
+This project is licensed under the **MIT License** - free for personal and commercial use.
+
 ## 📞 Contact & Support
 
 - **Email**: levanduy.work@gmail.com
@@ -93,4 +97,4 @@ rm -rf ~/.sshm/
 
 **🎉 Enjoy using SSH Manager!** 
 
-*If this tool helps you, please give it a ⭐ on GitHub!* 
+*This software is completely free to use. If this tool helps you, please give it a ⭐ on GitHub!* 
