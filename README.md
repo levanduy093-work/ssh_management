@@ -6,191 +6,272 @@
 ![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=for-the-badge&logo=go)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**🚀 Giao diện TUI đơn giản để quản lý SSH hosts**
+**🚀 Terminal UI for SSH Host Management**
 
-*Tự động phát hiện từ `~/.ssh/known_hosts` và cung cấp giao diện terminal tương tác*
+*Zero-config SSH host manager with auto-discovery and intelligent username detection*
 
 </div>
 
-## ✨ Tính năng
+## ✨ Features
 
-- 🔍 **Auto-discovery**: Tự động phát hiện SSH hosts từ `~/.ssh/known_hosts`
-- 🖥️ **TUI Interface**: Giao diện terminal tương tác đẹp mắt
-- ⚡ **Kết nối nhanh**: Chọn và kết nối SSH chỉ với vài phím
-- 📊 **Thống kê sử dụng**: Theo dõi tần suất sử dụng các hosts
-- 🏷️ **Thông tin chi tiết**: Hiển thị user, port, mô tả cho mỗi host
-- 💾 **Nhẹ nhàng**: Single binary, không cần cấu hình phức tạp
+- 🔍 **Smart Auto-Discovery**: Automatically discovers SSH hosts from `~/.ssh/known_hosts`
+- 🧠 **Username Detection**: Intelligently detects usernames from shell history
+- 🌐 **IP Resolution**: Resolves and displays IP addresses for all hosts
+- 🖥️ **Beautiful TUI**: Clean terminal interface with intuitive navigation
+- ⚡ **Instant Connect**: Connect to any host with just Enter
+- 🗑️ **Safe Deletion**: Remove hosts from both database and known_hosts
+- 📊 **Usage Stats**: Track connection frequency and usage patterns
+- 💾 **Lightweight**: Single binary, no complex configuration needed
 
-## 🎯 Triết lý
+## 🎯 Philosophy
 
-SSH Manager được thiết kế theo nguyên tắc **đơn giản và hiệu quả**:
+SSH Manager follows the **"Just Works"** principle:
 
-- ✅ **Zero config**: Không cần setup, chỉ cần chạy `sshm`
-- ✅ **Auto-discovery**: Tự động phát hiện hosts đã kết nối
-- ✅ **TUI-only**: Chỉ giao diện terminal, không có CLI commands rườm rà
-- ✅ **Lightweight**: Tập trung vào task chính: browse và connect
+- ✅ **Zero Configuration**: No setup required - just run `sshm`
+- ✅ **Auto-Discovery**: Automatically finds all your SSH hosts
+- ✅ **Smart Detection**: Detects usernames from your actual SSH usage
+- ✅ **TUI-Only**: Clean interface focused on the task at hand
+- ✅ **Safe Operations**: Backup and restore capabilities
 
-## 🚀 Cài đặt
+## 🚀 Installation
 
-### Cài đặt nhanh
+### Homebrew (Recommended)
 ```bash
-# Download và cài đặt từ GitHub Releases
-curl -sSL https://github.com/levanduy/ssh_management/releases/latest/download/install.sh | bash
+# Add tap
+brew tap levanduy/sshm
+
+# Install SSH Manager
+brew install sshm
+
+# Or install directly
+brew install levanduy/sshm/sshm
 ```
 
-### Build từ source
+### Quick Install from Source
 ```bash
+# Clone and install
 git clone https://github.com/levanduy/ssh_management.git
 cd ssh_management
 make install
 ```
 
-### Manual build
+### Manual Build
 ```bash
-go build -o sshm ./cmd/sshm
-sudo cp sshm /usr/local/bin/
+# Clone repository
+git clone https://github.com/levanduy/ssh_management.git
+cd ssh_management
+
+# Build and install
+go build -o bin/sshm cmd/sshm/main.go
+sudo install -m 755 bin/sshm /usr/local/bin/sshm
 ```
 
-## 🎮 Sử dụng
+### Build Requirements
+- Go 1.24+
+- Linux/macOS (Unix-like systems)
 
-### Khởi động SSH Manager
+## 🎮 Usage
+
+### Launch SSH Manager
 ```bash
 sshm
 ```
 
-Chỉ cần vậy thôi! SSH Manager sẽ:
-1. 🔍 Tự động scan `~/.ssh/known_hosts` để tìm hosts
-2. 🖥️ Hiển thị giao diện TUI với danh sách hosts
-3. ⚡ Cho phép bạn browse và kết nối ngay lập tức
+That's it! SSH Manager will automatically:
+1. 🔍 Scan `~/.ssh/known_hosts` for hosts
+2. 🧠 Detect usernames from shell history (`~/.zsh_history`, `~/.bash_history`)
+3. 🌐 Resolve IP addresses for all hosts
+4. 🖥️ Display everything in a beautiful TUI
 
-### Điều khiển TUI
+### TUI Controls
 
 ```
-┌─ SSH Manager ─────────────────────────┐
-│ ID   NAME            HOST             │
-│ ──────────────────────────────────── │
-│ 1    server-prod     192.168.1.100    │
-│ 2    github          github.com       │
-│ 3    vps-dev         dev.example.com  │
-└──────────────────────────────────────┘
+┌─ SSH Manager ─────────────────────────────────────────────┐
+│ Total hosts: 7 • Selected: 1                             │
+│                                                           │
+│ levanduy (duy@levanduy.local:22) [192.168.1.100]         │
+│ Auto-detected from known_hosts (ssh-ed25519) • Used 5 times │
+│                                                           │
+│ webserver (admin@webserver.example.com:22) [203.0.113.10] │
+│ Auto-detected from known_hosts (ssh-rsa) • ssh-detected   │
+│                                                           │
+│ database (dbuser@database.prod.com:22) [198.51.100.25]   │
+│ Auto-detected from known_hosts (ssh-rsa) • ssh-detected   │
+└───────────────────────────────────────────────────────────┘
 
-⌨️  Phím tắt:
-  ↑/↓    Điều hướng
-  Enter  Kết nối SSH
-  /      Tìm kiếm
-  d      Xóa host
-  r      Refresh (scan lại)
-  q      Thoát
+⌨️  Controls:
+  ↑/k up • ↓/j down • / search • enter connect • x delete • r refresh • q quit
 ```
 
-### Auto-Discovery
+### Key Features in Action
 
-SSH Manager tự động phát hiện hosts mỗi khi chạy:
-
+#### Smart Username Detection
 ```bash
-# Khi bạn đã SSH đến hosts mới:
-ssh user@newserver.com
+# Your SSH history:
+ssh admin@webserver.example.com
+ssh dbuser@database.prod.com
+ssh deploy@api.staging.net
 
-# Sau đó chạy sshm, nó sẽ tự động thêm:
-sshm
-# → "🔍 Auto-discovered 1 new SSH host(s)"
+# SSH Manager automatically detects:
+# webserver.example.com → username: admin
+# database.prod.com → username: dbuser
+# api.staging.net → username: deploy
 ```
 
-### Tắt auto-discovery (nếu cần)
+#### IP Address Resolution
 ```bash
-sshm --auto-discovery=false
+# Automatically resolves and displays:
+# webserver.example.com → [203.0.113.10]
+# database.prod.com → [198.51.100.25]
+# api.staging.net → [192.0.2.50]
 ```
 
-## 🏗️ Kiến trúc
+#### Safe Host Deletion
+```bash
+# Press 'x' on any host to see:
+┌─ Delete Host Confirmation ─────────────────────┐
+│                                                │
+│ Host: webserver                                │
+│ Connection: admin@webserver.example.com:22     │
+│ IP: 203.0.113.10                              │
+│                                                │
+│ This will remove the host from:                │
+│ • SSH Manager database                         │
+│ • ~/.ssh/known_hosts file                     │
+│                                                │
+│ Continue? (y/N)                                │
+│                                                │
+│ Press 'y' to confirm • 'n' or 'Esc' to cancel │
+└────────────────────────────────────────────────┘
+```
+
+## 🏗️ Architecture
 
 ```
 sshm (single binary)
-├── TUI Interface (Bubble Tea)
-├── Auto-discovery (known_hosts)
+├── TUI Interface (Bubble Tea + Lipgloss)
+├── Auto-Discovery Engine
+│   ├── known_hosts parser
+│   ├── Shell history analyzer
+│   └── IP address resolver
 ├── SQLite Database (~/.sshm/)
 └── SSH Integration (system ssh)
 ```
 
 **Tech Stack:**
 - **Language**: Go 1.24+
-- **TUI**: Bubble Tea + Bubbles + Lipgloss  
+- **TUI**: Bubble Tea + Bubbles + Lipgloss
 - **Database**: SQLite (modernc.org/sqlite)
-- **SSH**: System SSH client
+- **SSH**: System SSH client integration
 
-## ⚙️ Cấu hình
+## 🔧 How It Works
 
-### Database Location
+### Auto-Discovery Process
+1. **Parse known_hosts**: Extracts hostnames and IP addresses
+2. **Analyze shell history**: Finds SSH commands with usernames
+3. **Match and merge**: Combines information from both sources
+4. **Resolve IPs**: Uses system DNS to resolve missing IP addresses
+5. **Update database**: Stores or updates host information
+
+### Username Detection Sources
+1. **SSH Config** (`~/.ssh/config`) - Highest priority
+2. **Shell History** (`~/.zsh_history`, `~/.bash_history`) - Smart parsing
+3. **System Username** - Fallback option
+
+### Data Storage
 ```bash
-# Mặc định
+# Database location
 ~/.sshm/hosts.db
 
-# Custom database path
-sshm --db /custom/path/hosts.db
+# Backup your known_hosts (automatically created)
+~/.ssh/known_hosts.backup
 ```
-
-### SSH Key Management
-SSH Manager sử dụng SSH client của hệ thống:
-- ✅ SSH keys (`~/.ssh/`)
-- ✅ SSH agent
-- ✅ SSH config (`~/.ssh/config`)
-- ❌ Không lưu trữ passwords
 
 ## 🎯 Use Cases
 
-### Developer Workflow
+### Daily Developer Workflow
 ```bash
-# 1. Kết nối đến servers trong ngày
-ssh user@prod-web-01
-ssh deploy@staging-api  
-ssh admin@monitoring
+# Throughout the day, you SSH to various servers:
+ssh admin@prod-web-01
+ssh deploy@staging-api
+ssh monitor@monitoring.cloud.io
 
-# 2. Sau đó dùng SSH Manager để browse nhanh
+# Later, just run SSH Manager:
 sshm
-# → Tất cả servers xuất hiện trong TUI
-# → Chọn và kết nối chỉ với Enter
+# → All servers appear with correct usernames
+# → IP addresses resolved and displayed
+# → Connect to any server with just Enter
 ```
 
-### Khác biệt với tools khác
+### Server Administration
+```bash
+# Manage multiple environments:
+ssh root@prod-db-01
+ssh admin@staging-web-02
+ssh backup@backup.internal
 
-| Tool | Approach | SSH Manager |
-|------|----------|-------------|
-| `ssh` | Manual typing | 🔍 Auto-discovery |
-| `ssh-config` | Manual config | ⚡ Zero config |
-| Complex tools | Many commands | 🎯 TUI-only |
+# SSH Manager organizes everything:
+# → Tracks usage frequency
+# → Shows connection details
+# → Enables quick switching between servers
+```
 
-## 🗑️ Gỡ cài đặt
+## 🛠️ Configuration
+
+### Environment Variables
+```bash
+# Custom database path
+export SSHM_DB_PATH="/custom/path/hosts.db"
+
+# Disable auto-discovery on startup
+export SSHM_AUTO_DISCOVERY=false
+```
+
+### SSH Integration
+SSH Manager leverages your existing SSH setup:
+- ✅ SSH keys (`~/.ssh/`)
+- ✅ SSH agent
+- ✅ SSH config (`~/.ssh/config`)
+- ✅ Known hosts (`~/.ssh/known_hosts`)
+- ❌ No password storage
+
+## 🗑️ Uninstall
 
 ```bash
-# Xóa binary
+# Remove binary
 sudo rm /usr/local/bin/sshm
 
-# Xóa tất cả dữ liệu (tùy chọn)
+# Remove all data (optional)
 rm -rf ~/.sshm/
+
+# Restore original known_hosts if needed
+cp ~/.ssh/known_hosts.backup ~/.ssh/known_hosts
 ```
 
-## 🤝 Đóng góp
+## 🤝 Contributing
 
-1. Fork repository
-2. Tạo feature branch: `git checkout -b feature/amazing-feature`
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
 3. Commit changes: `git commit -m 'Add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
-5. Tạo Pull Request
+5. Create Pull Request
 
 ## 📄 License
 
-Dự án được phát hành dưới MIT License. Xem [LICENSE](LICENSE) để biết thêm chi tiết.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Framework TUI tuyệt vời
-- [SQLite](https://sqlite.org/) - Database nhẹ và tin cậy
-- Go community - Ecosystem tuyệt vời
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Excellent TUI framework
+- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Beautiful styling
+- [SQLite](https://sqlite.org/) - Reliable embedded database
+- Go community - Amazing ecosystem
 
-## 📞 Liên hệ
+## 📞 Contact
 
 - GitHub: [@levanduy](https://github.com/levanduy)
-- Email: your.email@example.com
+- Project: [ssh_management](https://github.com/levanduy/ssh_management)
 
 ---
 
-⭐ **Nếu project hữu ích, hãy cho một star để ủng hộ!** ⭐ 
+⭐ **If this project helps you, please give it a star!** ⭐ 

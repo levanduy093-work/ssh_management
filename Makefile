@@ -1,133 +1,138 @@
-.PHONY: build clean test lint install dev release uninstall uninstall-all
+.PHONY: build install clean test homebrew-setup help
 
 # Variables
 BINARY_NAME=sshm
-BUILD_DIR=dist
-MAIN_PATH=./cmd/sshm
-VERSION?=v1.0.0
+BUILD_DIR=bin
+INSTALL_PATH=/usr/local/bin
+GO_FILES=$(shell find . -name "*.go" -type f)
 
 # Default target
-all: clean build
+all: build
 
-# Build for development
+# Build the application
 build:
-	@echo "Building $(BINARY_NAME)..."
-	go build -ldflags "-X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BINARY_NAME) $(MAIN_PATH)
+	@echo "🔨 Building SSH Manager..."
+	@mkdir -p $(BUILD_DIR)
+	go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/sshm
+	@echo "✅ Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
-# Build and auto-install globally
-build-install: build
-	@echo "Installing $(BINARY_NAME) globally..."
-	@if [ -w /usr/local/bin ]; then \
-		cp $(BINARY_NAME) /usr/local/bin/; \
-		chmod +x /usr/local/bin/$(BINARY_NAME); \
-		echo "✅ $(BINARY_NAME) installed to /usr/local/bin"; \
-	else \
-		echo "🔑 Installing requires sudo access..."; \
-		sudo cp $(BINARY_NAME) /usr/local/bin/; \
-		sudo chmod +x /usr/local/bin/$(BINARY_NAME); \
-		echo "✅ $(BINARY_NAME) installed to /usr/local/bin"; \
-	fi
-	@echo "🚀 You can now run: $(BINARY_NAME)"
-
-# Build for multiple platforms
-build-all: clean
-	@echo "Building for multiple platforms..."
-	mkdir -p $(BUILD_DIR)
-	
-	# macOS AMD64
-	GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
-	
-	# macOS ARM64 (Apple Silicon)
-	GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
-	
-	# Linux AMD64
-	GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
-	
-	# Linux ARM64
-	GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
-
-# Install to local bin
+# Install the application
 install: build
-	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
-	sudo mv $(BINARY_NAME) /usr/local/bin/
+	@echo "📦 Installing SSH Manager..."
+	sudo install -m 755 $(BUILD_DIR)/$(BINARY_NAME) $(INSTALL_PATH)/$(BINARY_NAME)
+	@echo "✅ Installed to $(INSTALL_PATH)/$(BINARY_NAME)"
+	@echo "🚀 Run 'sshm' to start SSH Manager"
 
-# Development mode - build and run
-dev: build
-	./$(BINARY_NAME)
-
-# Run tests
-test:
-	@echo "Running tests..."
-	go test -v ./...
-
-# Lint code
-lint:
-	@echo "Running linter..."
-	golangci-lint run
+# Uninstall the application
+uninstall:
+	@echo "🗑️  Uninstalling SSH Manager..."
+	sudo rm -f $(INSTALL_PATH)/$(BINARY_NAME)
+	@echo "✅ Uninstalled from $(INSTALL_PATH)/$(BINARY_NAME)"
+	@echo "💡 Data directory ~/.sshm/ preserved. Remove manually if needed."
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning up..."
-	rm -f $(BINARY_NAME)
+	@echo "🧹 Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
+	@echo "✅ Clean complete"
 
-# Update dependencies
-deps:
-	@echo "Updating dependencies..."
-	go mod download
+# Run tests
+test:
+	@echo "🧪 Running tests..."
+	go test -v ./...
+	@echo "✅ Tests complete"
+
+# Build for multiple platforms
+build-all:
+	@echo "🌍 Building for multiple platforms..."
+	@mkdir -p $(BUILD_DIR)
+	
+	# macOS (Intel)
+	GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/sshm
+	
+	# macOS (Apple Silicon)
+	GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/sshm
+	
+	# Linux (Intel)
+	GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/sshm
+	
+	# Linux (ARM)
+	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/sshm
+	
+	@echo "✅ Multi-platform build complete"
+	@ls -la $(BUILD_DIR)/
+
+# Setup Homebrew formula
+homebrew-setup:
+	@echo "🍺 Setting up Homebrew formula..."
+	./scripts/setup-homebrew.sh
+
+# Create a release
+release: clean test build-all
+	@echo "🚀 Creating release..."
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ VERSION not set. Usage: make release VERSION=v1.0.0"; \
+		exit 1; \
+	fi
+	
+	# Create git tag
+	git tag $(VERSION)
+	git push origin $(VERSION)
+	
+	# Setup Homebrew
+	$(MAKE) homebrew-setup
+	
+	@echo "✅ Release $(VERSION) created!"
+	@echo "📋 Next steps:"
+	@echo "   1. Create GitHub release with binaries from $(BUILD_DIR)/"
+	@echo "   2. Setup Homebrew tap repository"
+	@echo "   3. Update package managers"
+
+# Development setup
+dev-setup:
+	@echo "🛠️  Setting up development environment..."
 	go mod tidy
+	go mod download
+	@echo "✅ Development setup complete"
 
-# Create release archives
-release: build-all
-	@echo "Creating release archives..."
-	cd $(BUILD_DIR) && \
-	tar -czf $(BINARY_NAME)-darwin-amd64.tar.gz $(BINARY_NAME)-darwin-amd64 && \
-	tar -czf $(BINARY_NAME)-darwin-arm64.tar.gz $(BINARY_NAME)-darwin-arm64 && \
-	tar -czf $(BINARY_NAME)-linux-amd64.tar.gz $(BINARY_NAME)-linux-amd64 && \
-	tar -czf $(BINARY_NAME)-linux-arm64.tar.gz $(BINARY_NAME)-linux-arm64
+# Format code
+fmt:
+	@echo "🎨 Formatting code..."
+	go fmt ./...
+	@echo "✅ Code formatted"
 
-# Uninstall from system
-uninstall:
-	@echo "Uninstalling SSH Manager..."
-	@if [ -f /usr/local/bin/$(BINARY_NAME) ]; then \
-		rm -f /usr/local/bin/$(BINARY_NAME) || sudo rm -f /usr/local/bin/$(BINARY_NAME); \
-		echo "✅ SSH Manager binary removed."; \
+# Lint code
+lint:
+	@echo "🔍 Linting code..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
 	else \
-		echo "⚠️  SSH Manager not found in /usr/local/bin/"; \
-	fi
-	@echo "💡 Data preserved at ~/.sshm/ - use 'make uninstall-all' to remove all data"
-
-# Complete uninstall (binary + data)
-uninstall-all:
-	@echo "Removing SSH Manager completely..."
-	@if [ -f /usr/local/bin/$(BINARY_NAME) ]; then \
-		rm -f /usr/local/bin/$(BINARY_NAME) || sudo rm -f /usr/local/bin/$(BINARY_NAME); \
-		echo "✅ SSH Manager binary removed."; \
-	else \
-		echo "⚠️  SSH Manager not found in /usr/local/bin/"; \
-	fi
-	@if [ -d ~/.sshm ]; then \
-		rm -rf ~/.sshm; \
-		echo "✅ SSH Manager data removed."; \
-	else \
-		echo "⚠️  No data found at ~/.sshm/"; \
+		echo "⚠️  golangci-lint not found. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
 	fi
 
 # Show help
 help:
-	@echo "Available targets:"
-	@echo "  build-install  - 🚀 Build and install globally (RECOMMENDED)"
-	@echo "  build          - Build binary for current platform"
-	@echo "  build-all      - Build for all supported platforms"
-	@echo "  install        - Install existing binary to /usr/local/bin"
-	@echo "  uninstall      - Remove binary only (preserve data)"
-	@echo "  uninstall-all  - Remove binary and all data"
-	@echo "  dev            - Build and run for development"
-	@echo "  test           - Run tests"
-	@echo "  lint           - Run linter"
-	@echo "  clean          - Clean build artifacts"
-	@echo "  deps           - Update dependencies"
-	@echo "  release        - Create release archives"
-	@echo "  help           - Show this help"
+	@echo "SSH Manager (sshm) - Available commands:"
 	@echo ""
-	@echo "Quick setup: make build-install" 
+	@echo "🔨 Build commands:"
+	@echo "  build         Build the application"
+	@echo "  build-all     Build for multiple platforms"
+	@echo "  install       Build and install to system"
+	@echo "  uninstall     Remove from system"
+	@echo ""
+	@echo "🧪 Development commands:"
+	@echo "  dev-setup     Setup development environment"
+	@echo "  test          Run tests"
+	@echo "  fmt           Format code"
+	@echo "  lint          Lint code"
+	@echo "  clean         Clean build artifacts"
+	@echo ""
+	@echo "🚀 Release commands:"
+	@echo "  homebrew-setup Setup Homebrew formula"
+	@echo "  release       Create a release (requires VERSION=vX.X.X)"
+	@echo ""
+	@echo "💡 Examples:"
+	@echo "  make build"
+	@echo "  make install"
+	@echo "  make release VERSION=v1.0.0"
+	@echo "  make homebrew-setup" 
