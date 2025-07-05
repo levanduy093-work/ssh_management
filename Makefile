@@ -12,7 +12,7 @@ all: clean build
 # Build for development
 build:
 	@echo "Building $(BINARY_NAME)..."
-	go build -ldflags "-X main.version=$(VERSION)" -o $(BINARY_NAME) $(MAIN_PATH)
+	go build -ldflags "-X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BINARY_NAME) $(MAIN_PATH)
 
 # Build for multiple platforms
 build-all: clean
@@ -20,16 +20,16 @@ build-all: clean
 	mkdir -p $(BUILD_DIR)
 	
 	# macOS AMD64
-	GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=amd64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
 	
 	# macOS ARM64 (Apple Silicon)
-	GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
 	
 	# Linux AMD64
-	GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	GOOS=linux GOARCH=amd64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
 	
 	# Linux ARM64
-	GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X main.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
+	GOOS=linux GOARCH=arm64 go build -ldflags "-s -w -X github.com/levanduy/ssh_management/internal/cli.version=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
 
 # Install to local bin
 install: build

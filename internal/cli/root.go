@@ -29,7 +29,29 @@ Features:
 		initializeService()
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-		// Default to TUI mode when no command specified
+		// Check if there are any hosts first
+		hosts, err := hostService.GetAllHosts()
+		if err != nil {
+			fmt.Printf("Error checking hosts: %v\n", err)
+			return
+		}
+
+		// If no hosts exist, show welcome message and suggest adding one
+		if len(hosts) == 0 {
+			fmt.Println("🎉 Welcome to SSH Manager!")
+			fmt.Println("")
+			fmt.Println("You don't have any SSH hosts configured yet.")
+			fmt.Println("Let's add your first host:")
+			fmt.Println("")
+			fmt.Println("💡 Quick start:")
+			fmt.Printf("   %s add myserver%s\n", "\033[1;36m", "\033[0m")
+			fmt.Printf("   %s sshm%s (to launch interactive mode)\n", "\033[1;36m", "\033[0m")
+			fmt.Println("")
+			fmt.Println("📖 For help: sshm --help")
+			return
+		}
+
+		// Default to TUI mode when hosts exist
 		tuiCmd.Run(cmd, args)
 	},
 }
