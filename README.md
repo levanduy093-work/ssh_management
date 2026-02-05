@@ -35,17 +35,43 @@ SSH Manager follows the **"Just Works"** principle:
 
 ## 🚀 Installation
 
-### Homebrew (Recommended)
+### Homebrew (macOS)
+If you don't have Homebrew yet:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+Install SSH Manager:
 ```bash
 brew tap levanduy093-work/sshm && brew install sshm
 ```
 
-### Manual Build
+### Download Prebuilt Binary (Recommended for Windows/Linux)
+1. Go to GitHub Releases and download the right file for your OS:
+   - macOS: `sshm-darwin-amd64.tar.gz` or `sshm-darwin-arm64.tar.gz`
+   - Linux: `sshm-linux-amd64.tar.gz` or `sshm-linux-arm64.tar.gz`
+   - Windows: `sshm-windows-amd64.zip` or `sshm-windows-arm64.zip`
+2. Extract the archive.
+3. Run `sshm` (or `sshm.exe` on Windows).
+
+### Linux Quick Install (tar.gz)
+```bash
+# Example for amd64
+curl -L -o sshm.tar.gz https://github.com/levanduy093-work/ssh_management/releases/latest/download/sshm-linux-amd64.tar.gz
+tar -xzf sshm.tar.gz
+sudo install -m 755 sshm-linux-amd64 /usr/local/bin/sshm
+```
+
+### Manual Build (All Platforms)
 ```bash
 git clone https://github.com/levanduy093-work/ssh_management.git
-cd ssh_management && go build -o sshm cmd/sshm/main.go
+cd ssh_management && go build -o sshm ./cmd/sshm
 sudo install -m 755 sshm /usr/local/bin/sshm
 ```
+
+### Windows Notes
+- Use Windows Terminal or PowerShell for best TUI experience.
+- Ensure OpenSSH Client is installed and `ssh` is in PATH.
 
 ## 🎮 Usage
 
