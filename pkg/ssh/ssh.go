@@ -13,7 +13,7 @@ import (
 // ConnectToHost executes SSH connection using the system's SSH client
 func ConnectToHost(host *domain.Host) error {
 	args := buildSSHArgs(host)
-	
+
 	cmd := exec.Command("ssh", args...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -26,6 +26,11 @@ func ConnectToHost(host *domain.Host) error {
 func BuildSSHCommand(host *domain.Host) string {
 	args := buildSSHArgs(host)
 	return "ssh " + strings.Join(args, " ")
+}
+
+// BuildSSHArgs returns SSH arguments for a given host.
+func BuildSSHArgs(host *domain.Host) []string {
+	return buildSSHArgs(host)
 }
 
 // buildSSHArgs constructs SSH command arguments
@@ -82,4 +87,4 @@ func TestConnection(host *domain.Host) error {
 
 	cmd := exec.Command("ssh", args...)
 	return cmd.Run()
-} 
+}

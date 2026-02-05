@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/key"
@@ -285,6 +286,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case errorMsg:
 		m.message = fmt.Sprintf("Error: %s", msg.error)
+		m.state = listView
 		return m, nil
 
 	case tea.KeyMsg:
@@ -303,6 +305,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				selected := m.list.SelectedItem()
 				if selected != nil {
 					host := selected.(hostItem).host
+					if err := m.hostService.ConnectToHost(host.ID); err != nil {
+						m.message = fmt.Sprintf("Error: Failed to update stats: %v", err)
+						m.state = listView
+						return m, nil
+					}
+					m.state = connectingView
+					m.message = fmt.Sprintf("Connecting to %s@%s:%d...", host.Username, host.Hostname, host.Port)
 					return m, m.connectToHost(host)
 				}
 
@@ -408,6 +417,12 @@ func (m Model) View() string {
 			return fmt.Sprintf("%s\n\n%s\n\n%s\n\nContinue? (y/N)\n\n%s", title, hostInfo, warning, help)
 		}
 		return errorStyle.Render("Error: No host selected for deletion")
+
+	case connectingView:
+		title := titleStyle.Render("SSH Manager")
+		help := helpStyle.Render("Connecting... press q to quit")
+		message := messageStyle.Render(m.message)
+		return fmt.Sprintf("%s\n\n%s\n\n%s", title, message, help)
 
 	default:
 		// Main list view
@@ -516,19 +531,13 @@ func (m Model) searchHosts(query string) tea.Cmd {
 }
 
 func (m Model) connectToHost(host *domain.Host) tea.Cmd {
-	return func() tea.Msg {
-		// Update usage stats
-		if err := m.hostService.ConnectToHost(host.ID); err != nil {
-			return errorMsg{error: fmt.Sprintf("Failed to update stats: %v", err)}
-		}
-
-		// Connect via SSH
-		if err := ssh.ConnectToHost(host); err != nil {
+	cmd := exec.Command("ssh", ssh.BuildSSHArgs(host)...)
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		if err != nil {
 			return errorMsg{error: fmt.Sprintf("SSH connection failed: %v", err)}
 		}
-
 		return hostConnectedMsg{hostName: host.Name}
-	}
+	})
 }
 
 func (m Model) deleteHost(host *domain.Host) tea.Cmd {
