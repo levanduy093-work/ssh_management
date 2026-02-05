@@ -39,12 +39,20 @@ jobs:
       run: make build-all VERSION=${{ github.ref_name }}
       
     - name: Create release archives
-      run: make release
+      run: |
+        mkdir -p dist
+        tar -C bin -czf dist/sshm-darwin-amd64.tar.gz sshm-darwin-amd64
+        tar -C bin -czf dist/sshm-darwin-arm64.tar.gz sshm-darwin-arm64
+        tar -C bin -czf dist/sshm-linux-amd64.tar.gz sshm-linux-amd64
+        tar -C bin -czf dist/sshm-linux-arm64.tar.gz sshm-linux-arm64
+        zip -j dist/sshm-windows-amd64.zip bin/sshm-windows-amd64.exe
+        zip -j dist/sshm-windows-arm64.zip bin/sshm-windows-arm64.exe
       
     - name: Generate checksums
       run: |
         cd dist
         sha256sum *.tar.gz > checksums.txt
+        sha256sum *.zip >> checksums.txt
         
     - name: Create Release
       id: create_release
@@ -68,6 +76,10 @@ jobs:
           ### Linux
           - **x86_64**: `sshm-linux-amd64.tar.gz`
           - **ARM64**: `sshm-linux-arm64.tar.gz`
+
+          ### Windows
+          - **x86_64**: `sshm-windows-amd64.zip`
+          - **ARM64**: `sshm-windows-arm64.zip`
           
           ## 🛠️ Installation
           
@@ -150,6 +162,26 @@ jobs:
         asset_path: ./dist/sshm-linux-arm64.tar.gz
         asset_name: sshm-linux-arm64.tar.gz
         asset_content_type: application/gzip
+
+    - name: Upload Windows AMD64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/sshm-windows-amd64.zip
+        asset_name: sshm-windows-amd64.zip
+        asset_content_type: application/zip
+
+    - name: Upload Windows ARM64
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./dist/sshm-windows-arm64.zip
+        asset_name: sshm-windows-arm64.zip
+        asset_content_type: application/zip
         
     - name: Upload Checksums
       uses: actions/upload-release-asset@v1

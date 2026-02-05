@@ -531,6 +531,12 @@ func (m Model) searchHosts(query string) tea.Cmd {
 }
 
 func (m Model) connectToHost(host *domain.Host) tea.Cmd {
+	if _, err := exec.LookPath("ssh"); err != nil {
+		return func() tea.Msg {
+			return errorMsg{error: "SSH client not found in PATH. Install OpenSSH and try again."}
+		}
+	}
+
 	cmd := exec.Command("ssh", ssh.BuildSSHArgs(host)...)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		if err != nil {

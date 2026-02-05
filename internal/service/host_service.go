@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -388,12 +389,7 @@ func (s *HostService) parseShellHistory(hostname string) string {
 		return s.getCurrentUsername()
 	}
 
-	// Try different shell history files
-	historyFiles := []string{
-		filepath.Join(homeDir, ".zsh_history"),
-		filepath.Join(homeDir, ".bash_history"),
-		filepath.Join(homeDir, ".history"),
-	}
+	historyFiles := s.getHistoryFiles(homeDir)
 
 	for _, historyFile := range historyFiles {
 		if username := s.parseHistoryFile(historyFile, hostname); username != "" {
@@ -402,6 +398,28 @@ func (s *HostService) parseShellHistory(hostname string) string {
 	}
 
 	return s.getCurrentUsername() // Fallback
+}
+
+func (s *HostService) getHistoryFiles(homeDir string) []string {
+	var historyFiles []string
+
+	// Unix-like shells
+	historyFiles = append(historyFiles,
+		filepath.Join(homeDir, ".zsh_history"),
+		filepath.Join(homeDir, ".bash_history"),
+		filepath.Join(homeDir, ".history"),
+	)
+
+	if runtime.GOOS == "windows" {
+		// PowerShell history (PSReadLine)
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			historyFiles = append(historyFiles, filepath.Join(appData, "Microsoft", "Windows", "PowerShell", "PSReadLine", "ConsoleHost_history.txt"))
+		}
+		// Fallback path if APPDATA is not set
+		historyFiles = append(historyFiles, filepath.Join(homeDir, "AppData", "Roaming", "Microsoft", "Windows", "PowerShell", "PSReadLine", "ConsoleHost_history.txt"))
+	}
+
+	return historyFiles
 }
 
 func (s *HostService) parseHistoryFile(historyFile, hostname string) string {

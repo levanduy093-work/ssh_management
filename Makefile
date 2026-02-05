@@ -58,6 +58,12 @@ build-all:
 	
 	# Linux (ARM)
 	GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/sshm
+
+	# Windows (Intel/AMD64)
+	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/sshm
+
+	# Windows (ARM64)
+	GOOS=windows GOARCH=arm64 go build -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME)-windows-arm64.exe ./cmd/sshm
 	
 	@echo "✅ Multi-platform build complete"
 	@ls -la $(BUILD_DIR)/
