@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -276,6 +277,11 @@ func (s *HostService) parseKnownHosts(knownHostsPath string) []KnownHost {
 		hostname := parts[0]
 		keyType := parts[1]
 
+		// If multiple hostnames are present, prefer the first token
+		if strings.Contains(hostname, ",") {
+			hostname = strings.Split(hostname, ",")[0]
+		}
+
 		// Skip hashed hostnames (starting with |1|)
 		if strings.HasPrefix(hostname, "|1|") {
 			continue
@@ -501,8 +507,10 @@ func (s *HostService) parseSSHConfig(hostname string) string {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	var currentHost string
+	var currentPatterns []string
 	var currentUser string
+	var currentMatch bool
+	var currentHostName string
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -521,22 +529,22 @@ func (s *HostService) parseSSHConfig(hostname string) string {
 
 		switch directive {
 		case "host":
-			currentHost = value
-			currentUser = "" // Reset user for new host
+			currentPatterns = parts[1:]
+			currentUser = ""     // Reset user for new host
+			currentHostName = "" // Reset hostname override
+			currentMatch = s.hostMatchesPatterns(currentPatterns, hostname)
 		case "hostname":
-			if currentHost != "" && (value == hostname || currentHost == hostname) {
-				// We found a matching host section
+			if len(currentPatterns) == 0 {
+				continue
+			}
+			currentHostName = value
+			if !currentMatch && strings.EqualFold(currentHostName, hostname) {
+				// If HostName matches actual hostname, treat as a match.
+				currentMatch = true
 			}
 		case "user":
-			if currentHost != "" && currentUser == "" {
+			if currentMatch && currentUser == "" {
 				currentUser = value
-			}
-		}
-
-		// Check if we have a match
-		if currentHost != "" && currentUser != "" {
-			// Check if this host matches our hostname
-			if currentHost == hostname || strings.Contains(currentHost, hostname) {
 				return currentUser
 			}
 		}
@@ -544,6 +552,40 @@ func (s *HostService) parseSSHConfig(hostname string) string {
 
 	// SSH config didn't have the info, try shell history
 	return s.parseShellHistory(hostname)
+}
+
+func (s *HostService) hostMatchesPatterns(patterns []string, hostname string) bool {
+	if len(patterns) == 0 {
+		return false
+	}
+
+	hostname = strings.ToLower(hostname)
+	matched := false
+
+	for _, raw := range patterns {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+
+		negated := strings.HasPrefix(raw, "!")
+		pattern := strings.TrimPrefix(raw, "!")
+		pattern = strings.ToLower(pattern)
+
+		ok, err := path.Match(pattern, hostname)
+		if err != nil {
+			continue
+		}
+
+		if ok {
+			if negated {
+				return false
+			}
+			matched = true
+		}
+	}
+
+	return matched
 }
 
 // resolveIPAddress tries to resolve hostname to IP address

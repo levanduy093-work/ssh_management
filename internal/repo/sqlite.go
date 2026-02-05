@@ -209,61 +209,7 @@ func (r *SQLiteRepo) Delete(id int) error {
 		return fmt.Errorf("host with id %d not found", id)
 	}
 
-	// Reorder IDs after deletion to maintain sequential order
-	err = r.reorderIDs()
-	if err != nil {
-		return fmt.Errorf("failed to reorder IDs after deletion: %w", err)
-	}
-
 	return nil
-}
-
-// reorderIDs reassigns IDs to maintain sequential order starting from 1
-func (r *SQLiteRepo) reorderIDs() error {
-	// Get all hosts ordered by current ID
-	hosts, err := r.GetAll()
-	if err != nil {
-		return err
-	}
-
-	// Begin transaction
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	// Temporarily disable foreign key constraints if any
-	_, err = tx.Exec("PRAGMA foreign_keys = OFF")
-	if err != nil {
-		return err
-	}
-
-	// Update IDs to sequential order
-	for i, host := range hosts {
-		newID := i + 1
-		if host.ID != newID {
-			_, err = tx.Exec("UPDATE hosts SET id = ? WHERE id = ?", newID, host.ID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Re-enable foreign key constraints
-	_, err = tx.Exec("PRAGMA foreign_keys = ON")
-	if err != nil {
-		return err
-	}
-
-	// Reset the auto-increment counter
-	_, err = tx.Exec("UPDATE SQLITE_SEQUENCE SET seq = ? WHERE name = 'hosts'", len(hosts))
-	if err != nil {
-		// This is not critical if the table doesn't use AUTOINCREMENT
-		// Just log and continue
-	}
-
-	return tx.Commit()
 }
 
 func (r *SQLiteRepo) Search(query string) ([]*domain.Host, error) {
@@ -271,7 +217,7 @@ func (r *SQLiteRepo) Search(query string) ([]*domain.Host, error) {
 	SELECT id, name, hostname, ip_address, port, username, key_path, description, tags,
 		   last_used, use_count, created_at, updated_at
 	FROM hosts 
-	WHERE name LIKE ? OR hostname LIKE ? OR ip_address LIKE ? OR description LIKE ? OR tags LIKE ?
+	WHERE LOWER(name) LIKE ? OR LOWER(hostname) LIKE ? OR LOWER(ip_address) LIKE ? OR LOWER(description) LIKE ? OR LOWER(tags) LIKE ?
 	ORDER BY id ASC
 	`
 	pattern := "%" + strings.ToLower(query) + "%"

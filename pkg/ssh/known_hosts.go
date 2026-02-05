@@ -32,17 +32,32 @@ func RemoveFromKnownHosts(hostname string, port int) error {
 
 	// Create patterns to match the hostname
 	patterns := []string{
-		hostname,                               // hostname
-		fmt.Sprintf("[%s]:%d", hostname, port), // [hostname]:port
+		fmt.Sprintf("[%s]:%d", hostname, port),
+	}
+	if port == 22 {
+		patterns = append(patterns, hostname)
 	}
 
 	for scanner.Scan() {
 		line := scanner.Text()
 		shouldRemove := false
 
-		// Check if this line contains our hostname
-		for _, pattern := range patterns {
-			if strings.Contains(line, pattern) {
+		// Check host tokens in the known_hosts entry
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+
+		hostField := fields[0]
+		// Skip hashed hostnames (cannot reliably match)
+		if strings.HasPrefix(hostField, "|1|") {
+			lines = append(lines, line)
+			continue
+		}
+
+		hostTokens := strings.Split(hostField, ",")
+		for _, token := range hostTokens {
+			if matchesKnownHostToken(token, patterns) {
 				shouldRemove = true
 				break
 			}
@@ -74,4 +89,13 @@ func RemoveFromKnownHosts(hostname string, port int) error {
 	}
 
 	return nil
+}
+
+func matchesKnownHostToken(token string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if strings.EqualFold(token, pattern) {
+			return true
+		}
+	}
+	return false
 }

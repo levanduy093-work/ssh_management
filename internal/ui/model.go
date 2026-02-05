@@ -239,7 +239,7 @@ var (
 )
 
 func (m Model) Init() tea.Cmd {
-	return m.refreshWithDiscovery()
+	return m.loadHosts()
 }
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

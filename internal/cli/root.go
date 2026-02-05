@@ -69,19 +69,12 @@ func autoDiscoverHosts() {
 		return // Auto-discovery disabled
 	}
 
-	// Count hosts before discovery
-	hostsBefore, _ := hostService.GetAllHosts()
-	beforeCount := len(hostsBefore)
-
-	// Detect from known_hosts - silent mode
-	detectFromSSHFilesSilent()
-
-	// Count hosts after discovery and show notification if new hosts found
-	hostsAfter, _ := hostService.GetAllHosts()
-	afterCount := len(hostsAfter)
-
-	if afterCount > beforeCount {
-		newHosts := afterCount - beforeCount
+	newHosts, err := hostService.AutoDiscoverFromKnownHosts()
+	if err != nil {
+		fmt.Printf("Auto-discovery failed: %v\n", err)
+		return
+	}
+	if newHosts > 0 {
 		fmt.Printf("🔍 Auto-discovered %d new SSH host(s)\n", newHosts)
 	}
 }
